@@ -76,9 +76,8 @@ async def security_headers(request: Request, call_next):
 
 
 def _client_ip(request: Request) -> str:
-    fwd = request.headers.get("x-forwarded-for")
-    # The deploy proxy appends the real client address; earlier entries are client-supplied and spoofable.
-    return fwd.split(",")[-1].strip() if fwd else (request.client.host if request.client else "unknown")
+    # X-Forwarded-For is ignored: with no proxy in front, any client could set it to dodge the rate limit.
+    return request.client.host if request.client else "unknown"
 
 
 def _rate_limited(ip: str) -> bool:

@@ -1,6 +1,6 @@
 # FraudLens — explainable phishing & digital-fraud detection
 
-**Live:** [fraudlens-topaz.vercel.app](https://fraudlens-topaz.vercel.app) · evaluation at [/report](https://fraudlens-topaz.vercel.app/report) · API docs at [/docs](https://fraudlens-topaz.vercel.app/docs)
+Runs locally: once started (see [Run locally](#run-locally)), open `http://localhost:8000`. The evaluation is at `/report` and the API docs at `/docs`.
 
 Paste an SMS, a WhatsApp message, a raw email (headers included) or a link. FraudLens returns:
 
@@ -55,7 +55,7 @@ input ─► normalise (NFKC, zero-width strip, refang hxxp/[.] , undo "K.Y.C"/"
 score = wording (cap 70) + email + text ML + combination bonuses + riskiest link; intel hit ⇒ ≥ 90
 ```
 
-**Models.** Both are scikit-learn logistic regressions exported to plain JSON. Inference is pure Python and matches scikit-learn to within 0.00002, so the deployed app needs only FastAPI, Uvicorn and tldextract.
+**Models.** Both are scikit-learn logistic regressions exported to plain JSON. Inference is pure Python and matches scikit-learn to within 0.00002, so the running app needs only FastAPI, Uvicorn and tldextract.
 
 - **URL model:** character 3–5-grams plus host and path word tokens (for example `hpaypal`, `psignin`, `tldxyz`), trained on 756k URLs.
 - **Text model:** word 1–2-grams, trained on 14.5k emails/SMS.
@@ -125,7 +125,7 @@ Users sign in with Google at `/dashboard`. FraudLens then checks their inbox eve
 4. Copy `.env.example` to `.env` and fill in `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET` and `TOKEN_ENCRYPTION_KEY`.
 5. Start the server and open `http://localhost:8000/dashboard` (use `localhost`, not `127.0.0.1`, so the sign-in cookie matches the redirect URI).
 
-Scopes requested: `gmail.readonly` and `gmail.send`. Public release would need Google's app verification and an annual CASA security assessment; Testing mode needs neither. The background checker needs an always-on server, so it doesn't run on serverless hosts such as Vercel.
+Scopes requested: `gmail.readonly` and `gmail.send`. Public release would need Google's app verification and an annual CASA security assessment; Testing mode needs neither. The background checker only runs while the server is running.
 
 ## Retrain, retune, refresh intel, re-evaluate
 
@@ -144,14 +144,9 @@ Raw data (not committed, ~160 MB) goes in `data/raw/`:
 .venv/bin/python scripts/stress_test.py  # writes app/model/robustness.json
 ```
 
-Intel is a snapshot taken at build time; refresh and redeploy regularly (daily is reasonable).
+Intel is a snapshot; refresh it and restart the server regularly (daily is reasonable).
 
-## Deploy
-
-- **Vercel:** `npx vercel deploy --prod` from this folder. The entrypoint `app/main.py` is auto-detected, and `.vercelignore` keeps raw data, scripts and tests out of the bundle. The GitHub repo isn't connected to the Vercel project, so pushes don't deploy by themselves. Connect it under Project → Settings → Git to deploy automatically on every push.
-- **Any container host (Render, Railway, Fly, Cloud Run):** use the `Dockerfile`; it honours `$PORT`.
-
-The rate limit (30 analyses/minute per IP) is in memory, so on multi-instance hosts it applies per instance.
+The rate limit (30 analyses and 10 website inspections per minute per IP) is kept in memory and resets when the server restarts.
 
 ## Limitations (short version)
 

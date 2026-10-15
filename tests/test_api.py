@@ -25,8 +25,8 @@ def test_rejects_empty_and_oversized_input():
 
 def test_rate_limit():
     main._hits.clear()
-    headers = {"x-forwarded-for": "203.0.113.9"}
-    codes = [client.post("/api/analyze", json={"content": "hello there friend"}, headers=headers).status_code for _ in range(main.RATE_LIMIT + 1)]
+    codes = [client.post("/api/analyze", json={"content": "hello there friend"},
+                         headers={"x-forwarded-for": f"203.0.113.{i}"}).status_code for i in range(main.RATE_LIMIT + 1)]
     assert codes[-1] == 429 and set(codes[:-1]) == {200}
     main._hits.clear()
 

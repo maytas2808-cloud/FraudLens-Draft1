@@ -25,8 +25,7 @@ class InspectRequest(BaseModel):
 
 
 def _limited(request: Request) -> bool:
-    fwd = request.headers.get("x-forwarded-for")
-    ip = fwd.split(",")[-1].strip() if fwd else (request.client.host if request.client else "unknown")
+    ip = request.client.host if request.client else "unknown"
     now, q = time.monotonic(), _hits[ip]
     while q and now - q[0] > RATE_WINDOW:
         q.popleft()
