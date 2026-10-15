@@ -49,6 +49,32 @@ def test_lookalike_and_homoglyph_domains():
     assert "brand_mismatch" in ids(analyze("https://secure.icicibank.com.verify-acct.xyz/login"))
 
 
+@pytest.mark.parametrize("domain,trick", [
+    ("arnozon.com", "'rn' looks like 'm'"),
+    ("arnazonsale.in", "'rn' looks like 'm'"),
+    ("vvhatsapp.com", "'vv' looks like 'w'"),
+    ("g00gle.com", "digit '0'"),
+    ("paypai.com", "'i' and 'l' swapped"),
+    ("rnicrosoft.com", "'rn' looks like 'm'"),
+    ("xn--amazn-mye.com", "foreign letters"),
+])
+def test_word_play_domains_are_high_risk(domain, trick):
+    r = analyze(domain)
+    hit = next(i for i in r["urls"][0]["indicators"] if i["id"] == "lookalike")
+    assert r["level"] == "high" and trick in hit["explanation"]
+
+
+@pytest.mark.parametrize("domain", ["amzaon.com", "irtcc.co.in", "bluedartt.com", "axisbamk.in"])
+def test_typo_domains_are_flagged(domain):
+    assert "lookalike" in ids(analyze(domain)) and analyze(domain)["level"] != "low"
+
+
+@pytest.mark.parametrize("domain", ["amazon.in", "flipkart.com", "linkedin.com", "kotak.com", "office-depot.com",
+                                    "business-live.co.uk", "swiggy.com"])
+def test_real_and_unrelated_domains_are_not_lookalikes(domain):
+    assert "lookalike" not in ids(analyze(domain))
+
+
 def test_at_symbol_url_is_not_treated_as_email():
     assert extract_urls("go to http://www.google.com@phishing-site.ru/login") == ["http://www.google.com@phishing-site.ru/login"]
     assert "at_symbol" in ids(analyze("http://www.google.com@phishing-site.ru/login"))

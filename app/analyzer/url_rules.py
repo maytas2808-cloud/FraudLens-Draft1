@@ -89,7 +89,17 @@ SENSITIVE_WORDS = (
     "banking", "wallet", "confirm", "unlock", "suspend", "reward", "refund", "claim", "bonus", "password", "auth",
     "validate", "recover", "billing", "invoice", "payment", "otp", "aadhaar", "pan-card", "challan", "netbanking",
 )
-HOMOGLYPHS = str.maketrans({"0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "7": "t", "8": "b", "@": "a", "$": "s", "!": "i"})
+# Characters that look alike are mapped to one shape; i, l, 1 and ! all collapse to "l".
+HOMOGLYPHS = str.maketrans({
+    "0": "o", "1": "l", "i": "l", "!": "l", "|": "l", "3": "e", "4": "a", "5": "s", "7": "t", "8": "b", "@": "a",
+    "$": "s", "6": "g", "9": "g", "q": "g",
+    "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "х": "x", "у": "y", "і": "l", "ј": "j", "ѕ": "s", "ԁ": "d",
+    "ո": "n", "ս": "u", "ɡ": "g", "ı": "l", "ӏ": "l",
+})
+# Letter pairs that read as one letter at a glance (arnazon -> amazon, vvhatsapp -> whatsapp, cliff -> diff).
+LOOKALIKE_PAIRS = (("rn", "m"), ("nn", "m"), ("vv", "w"), ("cl", "d"))
+_TRICK_NAMES = {"rn": "'rn' looks like 'm'", "nn": "'nn' looks like 'm'", "vv": "'vv' looks like 'w'",
+                "cl": "'cl' looks like 'd'"}
 
 
 @dataclass
@@ -138,20 +148,39 @@ def parse(url: str) -> ParsedURL | None:
 
 
 def _levenshtein(a: str, b: str) -> int:
+    """Edit distance where swapping two neighbouring letters counts as one edit (amzaon -> amazon)."""
     if abs(len(a) - len(b)) > 2:
         return 3
-    prev = list(range(len(b) + 1))
+    rows = [list(range(len(b) + 1))]
     for i, ca in enumerate(a, 1):
         cur = [i]
         for j, cb in enumerate(b, 1):
-            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
-        prev = cur
-    return prev[-1]
+            d = min(rows[-1][j] + 1, cur[j - 1] + 1, rows[-1][j - 1] + (ca != cb))
+            if i > 1 and j > 1 and ca == b[j - 2] and a[i - 2] == cb:
+                d = min(d, rows[-2][j - 2] + 1)
+            cur.append(d)
+        rows.append(cur)
+    return rows[-1][-1]
 
 
 def _skeleton(label: str) -> str:
-    s = label.lower().translate(HOMOGLYPHS).replace("rn", "m").replace("vv", "w").replace("-", "")
+    s = label.lower().replace("-", "").replace("_", "").translate(HOMOGLYPHS)
+    for pair, single in LOOKALIKE_PAIRS:
+        s = s.replace(pair, single)
     return s
+
+
+def _tricks(cand: str, target: str) -> list[str]:
+    """Plain-language list of the disguises that turn `target` into `cand`."""
+    found = [_TRICK_NAMES[pair] for pair, single in LOOKALIKE_PAIRS if pair in cand and single in target and pair not in target]
+    digits = sorted({c for c in cand if c.isdigit()} - set(target))
+    if digits:
+        found.append("digit" + ("s " if len(digits) > 1 else " ") + ", ".join(f"'{d}'" for d in digits) + " in place of letters")
+    if any(ord(c) > 127 for c in cand):
+        found.append("foreign letters that look Latin")
+    if len(cand) == len(target) and any({a, b} == {"i", "l"} for a, b in zip(cand, target)):
+        found.append("'i' and 'l' swapped")
+    return found
 
 
 def _official(brand: str, registered: str) -> bool:
@@ -187,28 +216,63 @@ def find_brand_misuse(p: ParsedURL) -> tuple[str, str] | None:
     return None
 
 
-def find_typosquat(p: ParsedURL) -> tuple[str, str] | None:
-    """Return (look-alike target, official domain) for domains one or two edits away from a brand or top site."""
+_BRAND_NAMES = [(brand, official, [(ol, _skeleton(ol)) for ol in sorted({o.split(".")[0] for o in official} | {brand})
+                                    if len(ol) >= 5])
+                for brand, official in BRANDS.items()]
+# Official names that are also everyday words; they only count when they are the whole domain name.
+_GENERIC_NAMES = {"office", "outlook", "apple", "steam", "adobe", "naukri"}
+
+
+def _transposed(a: str, b: str) -> bool:
+    return len(a) == len(b) and sorted(a) == sorted(b) and _levenshtein(a, b) == 1
+
+
+def find_typosquat(p: ParsedURL) -> tuple[str, str, list[str], bool] | None:
+    """Return (imitated name, official domain, disguises used, visually disguised?) for domains that read like a brand.
+
+    Look-alike characters are collapsed first (rn -> m, 0 -> o, Cyrillic а -> a), then one more ordinary typo is
+    allowed for names of 6+ letters and two for 9+, so stacked tricks like 'arnozon' (rn for m, o for a) are caught.
+    """
     if p.is_ip or not p.domain_label:
         return None
     label = p.domain_label.lower()
+    if label.startswith("xn--"):
+        try:
+            label = label.encode("ascii").decode("idna")
+        except UnicodeError:
+            pass
     rank = intel.rank(p.registered_domain)
     if rank is not None and rank <= 20000:
         return None
     candidates = [label] + [t for t in re.split(r"[-_.]", label) if len(t) >= 4 and t != label]
-    for brand, official in BRANDS.items():
-        if _official(brand, p.registered_domain) or len(brand) < 5:
+    for brand, official, names in _BRAND_NAMES:
+        if _official(brand, p.registered_domain):
             continue
-        official_labels = {o.split(".")[0] for o in official}
-        for ol in official_labels | {brand}:
+        for ol, so in names:
             for cand in candidates:
-                if cand == ol:
-                    if p.registered_domain not in official:
-                        return ol, official[0]
+                if cand != label and ol in _GENERIC_NAMES:
                     continue
-                if (_skeleton(cand) == ol or (len(ol) >= 6 and _levenshtein(cand, ol) == 1)
-                        or (len(ol) >= 9 and _levenshtein(cand, ol) == 2)):
-                    return ol, official[0]
+                if cand == ol:
+                    if cand == label and p.registered_domain not in official:
+                        return ol, official[0], [f"the real name on a different domain ending (.{p.suffix})"], False
+                    continue
+                sc = _skeleton(cand)
+                tricks = _tricks(cand, ol)
+                if sc == so:
+                    return ol, official[0], tricks or ["look-alike letters"], True
+                if len(ol) < 6:
+                    if _transposed(cand, ol):
+                        return ol, official[0], tricks + ["two neighbouring letters swapped"], bool(tricks)
+                    continue
+                d = _levenshtein(cand, ol)
+                # After undoing a disguise, only a same-length change counts (arnozon -> amozon -> amazon).
+                if tricks and len(sc) == len(so) and _levenshtein(sc, so) == 1:
+                    d = 1
+                if d == 1 or (d == 2 and len(ol) >= 9):
+                    typo = "one letter added, dropped, changed or swapped" if d == 1 else "two letters changed"
+                    return ol, official[0], tricks + [typo], bool(tricks)
+                if tricks and so in sc and ol not in cand:
+                    return ol, official[0], tricks + ["extra words around the name"], True
     return None
 
 
@@ -240,17 +304,22 @@ def analyze_url(url: str) -> tuple[ParsedURL | None, list[Hit], dict | None]:
         add("punycode", "Internationalised (look-alike) domain", 20,
             f"The domain is written with special characters and displays as '{p.unicode_host}', which can imitate a real brand.", p.host)
 
-    misuse = find_brand_misuse(p)
+    squat = find_typosquat(p)
+    misuse = None if squat else find_brand_misuse(p)
     if misuse:
         brand, where = misuse
         add("brand_mismatch", f"'{brand}' used on a domain it doesn't own", 30,
             f"The {where} contains '{brand}', but the real site is {BRANDS[brand][0]}. The link actually goes to {p.registered_domain}.",
             p.host + (p.path[:40] if where == "path" else ""))
-    squat = find_typosquat(p)
-    if squat and not misuse:
-        target, official = squat
-        add("lookalike", "Look-alike of a well-known domain", 30,
-            f"'{p.registered_domain}' imitates '{official}' with small spelling changes.", p.registered_domain)
+    if squat:
+        target, official, tricks, disguised = squat
+        if disguised:
+            add("lookalike", "Disguised copy of a well-known domain", 60,
+                f"'{p.registered_domain}' is made to read like '{official}' at a glance: {'; '.join(tricks)}. "
+                "Letters chosen to fool the eye are a deliberate trick; genuine companies never do this.", p.registered_domain)
+        else:
+            add("lookalike", "Look-alike of a well-known domain", 40,
+                f"'{p.registered_domain}' imitates '{official}': {'; '.join(tricks)}.", p.registered_domain)
 
     if p.registered_domain in SHORTENERS:
         add("shortener", "Shortened link hides the destination", 10,

@@ -48,7 +48,8 @@ input ─► normalise (NFKC, zero-width strip, refang hxxp/[.] , undo "K.Y.C"/"
       ├─► text rules  ─► 20 weighted Indian-context fraud patterns + "genuine message" patterns
       ├─► text ML     ─► TF-IDF word 1–2-grams + logistic regression; top contributing words shown
       └─► each link   ─► threat intel (OpenPhish, URLhaus), Tranco top-100k reputation,
-                         brand-on-wrong-domain, typosquat (edit distance + homoglyph skeleton),
+                         brand-on-wrong-domain, typosquat (look-alike letters such as rn→m, vv→w, 0→o, i↔l
+                         and Cyrillic, plus one extra typo: arnozon.com → amazon),
                          punycode/IDN, IP host, "@" trick, shorteners, free hosting, risky TLDs,
                          redirect parameters, URL ML model,
                          optional live check (redirect chain, TLS, RDAP domain age)
