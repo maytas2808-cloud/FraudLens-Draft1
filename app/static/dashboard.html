@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Gmail — FraudLens</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="bg" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/"><img src="/static/favicon.svg" alt="" width="28" height="28"> FraudLens</a>
+    <nav aria-label="Main">
+      <a href="/">Analyse</a>
+      <a href="/dashboard" aria-current="page">My Gmail</a>
+      <a href="/report">Evaluation</a>
+      <a href="/docs">API</a>
+    </nav>
+  </header>
+
+  <main class="report dashboard">
+    <p id="page-error" class="error panel" role="alert" hidden></p>
+
+    <section id="state-loading" class="panel"><div class="loading"><span class="spinner" aria-hidden="true"></span> Loading…</div></section>
+
+    <section id="state-unconfigured" class="panel" hidden>
+      <h1>Gmail protection isn't set up yet</h1>
+      <p class="muted">The server needs Google OAuth credentials. Add <code>GOOGLE_CLIENT_ID</code> and
+        <code>GOOGLE_CLIENT_SECRET</code> to the <code>.env</code> file and restart the server.</p>
+    </section>
+
+    <section id="state-signed-out" class="panel connect" hidden>
+      <h1>Let FraudLens watch your inbox</h1>
+      <p class="muted">Sign in with Google and FraudLens checks every new email for phishing and fraud, then emails you a report.</p>
+      <a class="btn-google" href="/auth/google">Sign in with Google</a>
+      <ul class="advice small">
+        <li>Read-only access to your mail, plus permission to send reports to you. You can disconnect any time.</li>
+        <li>Email bodies are analysed in memory and never stored; only sender, subject, score and reasons are kept.</li>
+        <li>Your Google access token is stored encrypted.</li>
+      </ul>
+    </section>
+
+    <section id="state-signed-in" hidden>
+      <div class="panel">
+        <div class="row between wrap gap">
+          <div>
+            <h1>Your inbox</h1>
+            <p class="muted small" id="account"></p>
+          </div>
+          <div class="row gap wrap">
+            <button type="button" id="scan-btn" class="btn-secondary">Scan now</button>
+            <button type="button" id="report-btn" class="btn-secondary">Email me a report</button>
+            <button type="button" id="logout-btn" class="btn-link">Sign out</button>
+            <button type="button" id="disconnect-btn" class="btn-link danger">Disconnect Gmail</button>
+          </div>
+        </div>
+        <p id="notice" class="small" role="status" hidden></p>
+        <p id="account-error" class="error" role="alert" hidden></p>
+        <div class="cards" id="stats"></div>
+        <div class="row gap wrap prefs">
+          <label class="check small"><input type="checkbox" id="pref-digest"> Daily report email</label>
+          <label class="check small"><input type="checkbox" id="pref-alerts"> Instant alert for high-risk emails</label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="row between wrap gap">
+          <h2>Checked emails</h2>
+          <div class="chips" id="filters">
+            <button type="button" class="chip" data-level="" aria-pressed="true">All</button>
+            <button type="button" class="chip" data-level="high" aria-pressed="false">High</button>
+            <button type="button" class="chip" data-level="medium" aria-pressed="false">Medium</button>
+            <button type="button" class="chip" data-level="low" aria-pressed="false">Low</button>
+          </div>
+        </div>
+        <p id="emails-empty" class="muted small" hidden>No emails checked yet. The first scan starts right after sign-in and takes a few seconds.</p>
+        <ul id="emails" class="history mail-list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer small muted">
+    FraudLens can be wrong: always verify through official channels. Lost money? Call <strong>1930</strong> or report at cybercrime.gov.in.
+  </footer>
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

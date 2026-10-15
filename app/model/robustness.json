@@ -1,0 +1,219 @@
+{
+  "generated_at": "2026-10-15T19:04:22+00:00",
+  "description": "Every malicious item in the scenario and holdout sets (82 scams) was disguised with each transform below. Threat feeds were switched off, so catches come only from rules and models. Flagged = score >= 30. Reworded legitimate items (73) check the false-positive cost.",
+  "malicious_items": 82,
+  "legit_items": 73,
+  "legit_baseline_false_positives": 10,
+  "baseline_detection_rate": 0.9756,
+  "overall": {
+    "n": 488,
+    "caught": 452,
+    "detection_rate": 0.9262
+  },
+  "transforms": [
+    {
+      "id": "digit_swap",
+      "name": "Digits for letters (bl0cked, acc0unt)",
+      "n": 71,
+      "caught": 67,
+      "detection_rate": 0.9437,
+      "baseline_rate": 0.9859,
+      "misses": [
+        {
+          "id": "m19",
+          "category": "government",
+          "score": 15,
+          "text": "TRA1 notic3: your mobil3 numb3r will be blocked in 2 hour5 due to illegal act1vity. Pre5s 9 to talk to the officer."
+        },
+        {
+          "id": "m23",
+          "category": "job",
+          "score": 18,
+          "text": "Part t1me job! 3arn Rs 3000 per day from h0me by liking YouTube videos. No exp3rience r3quired. C0ntact on Telegram @hr_pr1ya."
+        },
+        {
+          "id": "h18",
+          "category": "novel_modified",
+          "score": 0,
+          "text": "Electr1city departm3nt: Your meter is not updated. Y0ur light will be cut at 10 pm tonight. Downl0ad the B1ll Upd4te app from the l1nk we w1ll s3nd on WhatsApp."
+        },
+        {
+          "id": "h20",
+          "category": "novel_modified",
+          "score": 13,
+          "text": "Sir, I'm calling from your cr3dit c4rd department. Y0ur c4rd limit is incr3ased to 3 l4kh free. Just t3ll me the cod3 you just received to activate it."
+        }
+      ]
+    },
+    {
+      "id": "cyrillic_letters",
+      "name": "Look-alike Cyrillic letters (аccount with a Russian 'а')",
+      "n": 71,
+      "caught": 59,
+      "detection_rate": 0.831,
+      "baseline_rate": 0.9718,
+      "misses": [
+        {
+          "id": "m06",
+          "category": "bank_kyc_obfuscated",
+          "score": 0,
+          "text": "Dear сust0mer, ur A/c will be bl0сked. Pls upd8 your K.Y.C today using the link: hxxр://kotak-kyc[.]sitе/upd8"
+        },
+        {
+          "id": "m12",
+          "category": "payment_request",
+          "score": 22,
+          "text": "Hi I am buyіng your sоfa from OLX. I have sent a QR code, please scаn the QR to receive Rs 15,000 advance payment."
+        },
+        {
+          "id": "m13",
+          "category": "payment_request",
+          "score": 20,
+          "text": "Sir I am frоm army, posted at airport. I will pay for your bike, first sеnd Rs 10 to thіs UPI to verify the aсcount, then I'll sеnd the full amount."
+        },
+        {
+          "id": "m14",
+          "category": "payment_request",
+          "score": 25,
+          "text": "Dear сonsumer, your eleсtricity power wіll be disconnected tonight at 9:30 pm because your prеvious mоnth bіll was not updated. рlease immediately contаct our e"
+        },
+        {
+          "id": "m19",
+          "category": "government",
+          "score": 22,
+          "text": "TRаI notice: уour mobile numbеr will be blocked in 2 hоurs due to illegal activity. Press 9 to talk to the offiсer."
+        }
+      ]
+    },
+    {
+      "id": "zero_width",
+      "name": "Invisible zero-width characters inside words",
+      "n": 72,
+      "caught": 70,
+      "detection_rate": 0.9722,
+      "baseline_rate": 0.9722,
+      "misses": [
+        {
+          "id": "h18",
+          "category": "novel_modified",
+          "score": 0,
+          "text": "Electricity department: Yo​ur me​ter is not updated. Yo​ur light will be cut at 10 pm ton​ight. Download the Bill Upd​ate app fr​om the li​nk we wi​ll send on W"
+        },
+        {
+          "id": "h20",
+          "category": "novel_modified",
+          "score": 23,
+          "text": "Sir, I'm cal​ling fr​om yo​ur credit ca​rd depar​tment. Your card limit is increased to 3 la​kh free. Just te​ll me the code you ju​st received to activate it."
+        }
+      ],
+      "legit_n": 73,
+      "legit_false_positives": 10
+    },
+    {
+      "id": "spaced_keywords",
+      "name": "Spaced or dotted keywords (K Y C, O.T.P)",
+      "n": 36,
+      "caught": 36,
+      "detection_rate": 1.0,
+      "baseline_rate": 1.0,
+      "misses": []
+    },
+    {
+      "id": "reworded",
+      "name": "Reworded with synonyms (blocked → deactivated, click → tap)",
+      "n": 51,
+      "caught": 48,
+      "detection_rate": 0.9412,
+      "baseline_rate": 0.9804,
+      "misses": [
+        {
+          "id": "m13",
+          "category": "payment_request",
+          "score": 20,
+          "text": "Sir I am from army, posted at airport. I will deposit for your bike, first send Rs 10 to this UPI to confirm the a/c, then I'll send the full amount."
+        },
+        {
+          "id": "h03",
+          "category": "payment_request",
+          "score": 27,
+          "text": "Hello, I sent Rs 5,000 to your Google deposit by mistake. Please return it, I am sending a request, just approve it with your PIN."
+        },
+        {
+          "id": "h18",
+          "category": "novel_modified",
+          "score": 0,
+          "text": "Electricity department: Your meter is not updated. Your light will be cut at 10 pm tonight. Download the Bill refresh app from the link we will send on WhatsApp"
+        }
+      ],
+      "legit_n": 73,
+      "legit_false_positives": 9
+    },
+    {
+      "id": "defanged_links",
+      "name": "Disguised links (hxxp://, [.] dots)",
+      "n": 38,
+      "caught": 38,
+      "detection_rate": 1.0,
+      "baseline_rate": 1.0,
+      "misses": []
+    },
+    {
+      "id": "shortened_links",
+      "name": "Links hidden behind a URL shortener",
+      "n": 38,
+      "caught": 38,
+      "detection_rate": 1.0,
+      "baseline_rate": 1.0,
+      "misses": []
+    },
+    {
+      "id": "moved_to_free_host",
+      "name": "Scam page moved to free hosting (web.app, pages.dev …)",
+      "n": 38,
+      "caught": 38,
+      "detection_rate": 1.0,
+      "baseline_rate": 1.0,
+      "misses": []
+    },
+    {
+      "id": "combined",
+      "name": "Reworded + Cyrillic letters + invisible characters together",
+      "n": 73,
+      "caught": 58,
+      "detection_rate": 0.7945,
+      "baseline_rate": 0.9726,
+      "misses": [
+        {
+          "id": "m07",
+          "category": "bank_kyc",
+          "score": 28,
+          "text": "Axis Ba​nk аlert: yоur de​bit card has beеn restricted. Sh​arе the OTP sent to yo​ur number wіth our exec​utive to un​bloсk it."
+        },
+        {
+          "id": "m08",
+          "category": "bank_kyc_hinglish",
+          "score": 23,
+          "text": "Aapka SBI kh​ata bаnd ho jay​ega. KYC refresh karne ke li​ye tur​ant is li​nk par tap kаre​in: sbi-kyc.in.net/update"
+        },
+        {
+          "id": "m12",
+          "category": "payment_request",
+          "score": 0,
+          "text": "Hi I am buуing уour sofa fr​om OLX. I have sеnt a QR cоde, ple​ase scan the QR to rеce​ive Rs 15,000 adv​ance payment."
+        },
+        {
+          "id": "m13",
+          "category": "payment_request",
+          "score": 0,
+          "text": "Sir I am from army, posted at airport. I wi​ll dеpo​sit for yоur bіke, first sеnd Rs 10 to thіs UPI to confirm the a/c, th​en I'll send the fu​ll amount."
+        },
+        {
+          "id": "m16",
+          "category": "payment_request",
+          "score": 12,
+          "text": "I am your CEO, I'm in a mеet​ing and ne​ed you to ti​me-sensitive buy 10 Goоgle Pl​ay gi​ft cаrds worth Rs 5000 eаch for a cliеnt. Se​nd me the codes. Keeр th​i"
+        }
+      ]
+    }
+  ]
+}
