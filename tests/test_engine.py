@@ -123,6 +123,39 @@ def test_live_check_refuses_private_addresses():
     assert result["chain"] == [] and "non-public" in result["error"]
 
 
+def test_certificate_check_refuses_private_addresses():
+    assert live_check.check_certificate("127.0.0.1")["status"] == "blocked"
+
+
+@pytest.mark.parametrize("status,hit_id,added", [
+    ("valid", "tls_valid", 0),
+    ("invalid", "tls_invalid", 20),
+    ("no_https", "tls_missing", 15),
+    ("unreachable", "tls_unchecked", 0),
+])
+def test_certificate_result_adds_points(monkeypatch, status, hit_id, added):
+    hosts = []
+
+    def fake(host, port=443):
+        hosts.append((host, port))
+        return {"status": status, "issuer": None, "expires": None, "days_left": None, "error": "test"}
+
+    monkeypatch.setattr(live_check, "check_certificate", fake)
+    url = "secure-portal-login.com/account"
+    base, checked = analyze(url), analyze(url, check_tls=True)
+    assert hosts == [("secure-portal-login.com", 443)]
+    assert checked["urls"][0]["tls"]["status"] == status
+    assert hit_id in ids(checked)
+    assert checked["urls"][0]["raw_points"] - base["urls"][0]["raw_points"] == added
+
+
+def test_missing_https_replaces_the_plain_http_penalty(monkeypatch):
+    monkeypatch.setattr(live_check, "check_certificate",
+                        lambda host, port=443: {"status": "no_https", "issuer": None, "expires": None, "days_left": None, "error": "test"})
+    found = ids(analyze("http://secure-portal-login.com/account", check_tls=True))
+    assert "tls_missing" in found and "no_https" not in found
+
+
 def test_score_is_bounded_and_fast():
     r = analyze("x " * 5000)
     assert 0 <= r["score"] <= 100

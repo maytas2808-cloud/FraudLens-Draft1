@@ -52,7 +52,8 @@ input ─► normalise (NFKC, zero-width strip, refang hxxp/[.] , undo "K.Y.C"/"
                          and Cyrillic, plus one extra typo: arnozon.com → amazon),
                          punycode/IDN, IP host, "@" trick, shorteners, free hosting, risky TLDs,
                          redirect parameters, URL ML model,
-                         optional live check (redirect chain, TLS, RDAP domain age)
+                         HTTPS certificate check (scheme added if missing; invalid cert +20, no HTTPS +15),
+                         optional live check (redirect chain, RDAP domain age)
 score = wording (cap 70) + email + text ML + combination bonuses + riskiest link; intel hit ⇒ ≥ 90
 ```
 
@@ -72,7 +73,7 @@ A link inside a message that otherwise reads as harmless gets no points from the
 
 ## Privacy
 
-Content is analysed in memory and never stored or logged (logs record only type, level, score and time). History stays in the browser's localStorage and can be switched off or cleared. The live link check is opt-in because it contacts the link's server; it refuses private/internal addresses. Responses are `Cache-Control: no-store`, with a strict Content-Security-Policy (no inline scripts or styles, no third-party assets).
+Content is analysed in memory and never stored or logged (logs record only type, level, score and time). History stays in the browser's localStorage and can be switched off or cleared. For each link the server opens a TLS connection to check the certificate (no page is requested; results are cached for 10 minutes; API callers can send `"tls": false` to skip it). The live link check, which requests the page and follows redirects, is opt-in. Both refuse private/internal addresses. Responses are `Cache-Control: no-store`, with a strict Content-Security-Policy (no inline scripts or styles, no third-party assets).
 
 ## Run locally
 

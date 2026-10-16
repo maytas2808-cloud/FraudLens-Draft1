@@ -1,6 +1,7 @@
 """Combine rules, URL analysis, email headers, ML and threat intel into one explained verdict."""
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from . import guidance, live_check, ml
 from .email_rules import analyze_email, looks_like_raw_email
@@ -180,7 +181,43 @@ def _grade(lines: list[dict], raw: int, score: int, *, intel: bool, notes: list[
     }
 
 
-def analyze(content: str, *, live: bool = False, use_ml: bool = True) -> dict:
+def _tls_hit(tls: dict, host: str) -> Hit | None:
+    status = tls["status"]
+    if status == "valid":
+        expiry = f", valid until {tls['expires']}" if tls.get("expires") else ""
+        return Hit("tls_valid", "Valid HTTPS certificate", 0,
+                   f"{host} presented a trusted certificate{' from ' + tls['issuer'] if tls.get('issuer') else ''}{expiry}. "
+                   "Scam sites can get free certificates too, so this earns no points either way.", [host], "url")
+    if status == "invalid":
+        return Hit("tls_invalid", "Invalid HTTPS certificate", 20,
+                   f"The certificate {host} presented failed verification ({tls.get('error')}). "
+                   "Expired, self-signed or wrong-name certificates are common on hastily built scam sites; your browser would show a warning.",
+                   [tls.get("error") or host], "url")
+    if status == "no_https":
+        return Hit("tls_missing", "Site offers no working HTTPS", 15,
+                   f"{host} has no working HTTPS ({tls.get('error')}), so anything typed into it travels unencrypted. "
+                   "Every real bank, shop and government login page uses HTTPS.", [host], "url")
+    if status == "unreachable":
+        return Hit("tls_unchecked", "Certificate could not be checked", 0,
+                   f"{host} could not be reached ({tls.get('error')}). The site may be down, taken down, or not exist yet.", [host], "url")
+    return None
+
+
+def _check_tls(parsed_urls: list) -> dict:
+    targets = {}
+    for p in parsed_urls:
+        if p is None:
+            continue
+        port = p.port if p.scheme == "https" and p.port else 443
+        targets[(p.host.strip("[]"), port)] = None
+    if not targets:
+        return {}
+    with ThreadPoolExecutor(max_workers=min(4, len(targets))) as pool:
+        futures = {k: pool.submit(live_check.check_certificate, *k) for k in targets}
+    return {k: f.result() for k, f in futures.items()}
+
+
+def analyze(content: str, *, live: bool = False, use_ml: bool = True, check_tls: bool = False) -> dict:
     started = time.perf_counter()
     text = normalize_text(content)[:MAX_CHARS]
     email_summary, email_hits = None, []
@@ -209,8 +246,17 @@ def analyze(content: str, *, live: bool = False, use_ml: bool = True) -> dict:
     trusted_sender, verified_sender = bool(sender.get("trusted_sender")), bool(sender.get("verified"))
 
     url_reports, best_url_points, intel_types = [], 0, set()
-    for u in urls:
-        parsed, hits, intel_hit = analyze_url(u)
+    analysed = [(u, *analyze_url(u)) for u in urls]
+    tls_results = _check_tls([a[1] for a in analysed]) if check_tls else {}
+    for u, parsed, hits, intel_hit in analysed:
+        tls = None
+        if parsed is not None and tls_results:
+            tls = tls_results.get((parsed.host.strip("[]"), parsed.port if parsed.scheme == "https" and parsed.port else 443))
+            hit = _tls_hit(tls, parsed.host) if tls else None
+            if hit:
+                if hit.id == "tls_missing":
+                    hits[:] = [h for h in hits if h.id != "no_https"]
+                hits.append(hit)
         # A verified, established sender linking to its own or other well-known sites (newsletters, tracking links).
         counted = not (trusted_sender and parsed is not None and not intel_hit
                        and (parsed.registered_domain == sender.get("from_domain") or any(h.id == "reputation" for h in hits)))
@@ -250,6 +296,7 @@ def analyze(content: str, *, live: bool = False, use_ml: bool = True) -> dict:
             "indicators": [h.as_dict() for h in sorted(hits, key=lambda h: -h.weight)],
             "ml": ml_url,
             "intel": intel_hit,
+            "tls": tls,
             "live": live_info,
         })
     ids |= {h.id for h in email_hits}
@@ -367,7 +414,7 @@ def _live(url: str, parsed, hits: list[Hit]) -> dict:
         if fp and fp.registered_domain != parsed.registered_domain:
             hits.append(Hit("redirects_elsewhere", "Redirects to a different domain", 12,
                             f"The link redirects to {fp.registered_domain}, so the address shown isn't where you end up.", [final[:100]], "url"))
-    if info.get("https_ok") is False:
+    if info.get("https_ok") is False and not any(h.id == "tls_invalid" for h in hits):
         hits.append(Hit("bad_certificate", "HTTPS certificate problem", 15,
                         "The site's security certificate is invalid; your browser would show a warning.", [info.get("error") or ""], "url"))
     if age is not None and age < 30:

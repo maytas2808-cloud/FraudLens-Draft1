@@ -1,9 +1,17 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from app import main
+from app.analyzer import live_check
 from app.main import app
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def offline_certificate_check(monkeypatch):
+    monkeypatch.setattr(live_check, "check_certificate",
+                        lambda host, port=443: {"status": "unreachable", "issuer": None, "expires": None, "days_left": None, "error": "offline test"})
 
 
 def test_analyze_returns_explained_verdict():

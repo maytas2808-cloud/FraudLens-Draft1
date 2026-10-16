@@ -426,6 +426,17 @@ function renderResult(r) {
     if (u.registered_domain) facts.push(`Real domain: ${u.registered_domain}`);
     if (u.display_host && u.display_host !== u.host) facts.push(`Displays as: ${u.display_host}`);
     if (u.ml) facts.push(`URL model: ${Math.round(u.ml.probability * 100)}% phishing-like` + (u.ml.points ? ` (${u.ml.points > 0 ? "+" : ""}${u.ml.points} pts)` : ""));
+    if (u.tls) {
+      const t = u.tls;
+      const certText = {
+        valid: `HTTPS certificate: valid${t.issuer ? `, issued by ${t.issuer}` : ""}${t.days_left != null ? `, expires in ${t.days_left} days` : ""}`,
+        invalid: `HTTPS certificate: invalid (${t.error})`,
+        no_https: `HTTPS certificate: none, the site has no working HTTPS${t.error ? ` (${t.error})` : ""}`,
+        unreachable: `HTTPS certificate: not checked, ${t.error ? t.error.charAt(0).toLowerCase() + t.error.slice(1) : "site unreachable"}`,
+        blocked: "HTTPS certificate: not checked (private or internal address)",
+      }[t.status];
+      if (certText) facts.push(certText);
+    }
     if (u.live) {
       if (u.live.final_url && u.live.final_url !== u.url) facts.push(`Lands on: ${u.live.final_url}`);
       if (u.live.domain_age_days != null) facts.push(`Domain age: ${u.live.domain_age_days} days`);

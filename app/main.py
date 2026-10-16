@@ -61,6 +61,7 @@ _hits: dict[str, deque] = defaultdict(deque)
 class AnalyzeRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=MAX_CHARS, description="Message text, raw email or a URL")
     live: bool = Field(False, description="Follow redirects and look up domain age (contacts the link's server)")
+    tls: bool = Field(True, description="Verify each link's HTTPS certificate (opens a TLS connection to the link's server)")
 
 
 @app.middleware("http")
@@ -98,7 +99,7 @@ def api_analyze(body: AnalyzeRequest, request: Request):
     if not body.content.strip():
         raise HTTPException(status_code=422, detail="Paste a message, email or link to analyse.")
     try:
-        result = analyze(body.content, live=body.live)
+        result = analyze(body.content, live=body.live, check_tls=body.tls)
     except Exception:
         log.exception("analysis failed (content length %d)", len(body.content))
         raise HTTPException(status_code=500, detail="Analysis failed. Please try again.")
